@@ -1,1 +1,4 @@
-PGM Project
+#IFT 6269 Project
+##Comparison of several particle filtering methods for EEG denoising.
+
+We will implement a few of the filtering algorithms presented in the papers listed in the class website and compare their performances on the  case of denoising electroencephalography data. Indeed, EEG can be very noisy, with multiple sources of noises ( Eye movements & blinking - Electrooculogram (EOG), Cardiac Movements - Cardiograph (ECG/ EKG), Muscle Movements - Electromyogram (EMG),  Chewing & Sucking Movement – Glossokinetic, The machinery used to record signals, The power lines). Thus, denoising the EEG data is often a mandatory pre-processing step before using it in neuroscience. Today, one method widely used to denoise these kind of data is ICA, but we are curious to see if an other approach can perform better. To assess that, we will use both simulated and real data.

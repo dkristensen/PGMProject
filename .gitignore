@@ -1,0 +1,8 @@
+# LaTeX Auxillary files
+*.aux
+*.fls
+*.fdb_latexmk
+*.bbl
+*.blg
+
+*.gz
