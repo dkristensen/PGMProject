@@ -100,13 +100,14 @@ class EEGEval:
 
         return metric_res, best_params
 
-    def evaluate(self, data_path, algorithm, predictor, cv_fold=5, verbose=1):
+    def evaluate(self, data_path, algorithm, predictor, cv_fold=5, sub_select=1, verbose=1):
         """
         Runs the algorithm that evaluates the function
         :param data_path: path to the data containing 2 folders: train and test
         :param algorithm: Algorithm to evaluate
         :param predictor: Predictor to use for classification
         :param cv_fold: Number of fold to use for cross validation when optimizing the predictor.
+        :param sub_select: type of sub-selection to use to balance the data.
         :param verbose: degree of verbosity
         :return:
         """
@@ -129,7 +130,11 @@ class EEGEval:
                 print("Scoring {} out of {}...".format(j+1, y_train.shape[1]))
             features['y_train'] = y_train[:, j]
             features['y_test'] = y_test[:, j]
-            scores, best_params = self.score_features(features, predictor, cv_fold, verbose)
+            if sub_select:
+                new_features = sub_select_features(features, sub_select)
+            else:
+                new_features = features
+            scores, best_params = self.score_features(new_features, predictor, cv_fold, verbose)
             print("Best params obtained:", best_params)
             scores_list += scores
             names_list += [metric+' '+str(j) for metric in METRIC_NAMES]
@@ -221,3 +226,59 @@ def optimize_hyper_parameters(data, predictor, cv_fold, verbose=0):
 
     best = np.argmax(scores)  # To find the hyper parameter that yielded the best score on average.
     return regs[best]
+
+
+def sub_select_features(features, strategy):
+    """
+    Sub selects features to deal with unbalanced data
+    :param features:
+    :param strategy
+    :return: new balanced features
+    """
+
+    def extract_one_index(y_val):
+        index_ones = []
+        y_prev = 0
+        start_stop = []
+        if y_val[-1] == 1:
+            y_val = y_val.tolist() + [0]
+        for i, y in enumerate(y_val):
+            if y_prev == 0 and y == 1:
+                start_stop = [i]
+            if y_prev == 1 and y == 0:
+                start_stop.append(i)
+                index_ones.append(start_stop)
+            y_prev = y
+        return index_ones
+
+    def wrapper(start_stop, maxi):
+        size = start_stop[1] - start_stop[0]
+        bound = (size+1)//2
+        return [max(0, start_stop[0]-bound), min(maxi, start_stop[1]+bound)]
+
+    def deduce_index_to_keep(one_index, maxi):
+        wrapped = [wrapper(start_stop, maxi) for start_stop in one_index]
+        to_keep = [idx for idx in range(wrapped[0][0], wrapped[0][1])]
+        for start_stop in wrapped[1:]:
+            to_keep += [idx for idx in range(start_stop[0], start_stop[1]) if idx > to_keep[-1]]
+        return to_keep
+
+    if strategy == 0:
+        new_features = features  # We do nothing
+
+    else:
+        new_features = dict()
+        for which in ['train', 'test']:
+            one_id = extract_one_index(features['y_'+which])
+            true_idx = deduce_index_to_keep(one_id, len(features['y_'+which]))
+            try:
+                new_features['x_'+which] = features['x_'+which][true_idx]
+                new_features['y_'+which] = features['y_'+which][true_idx]
+            except IndexError as e:
+                print(which)
+                print(features['x_'+which].shape)
+                print(features['y_'+which].shape)
+                print(one_id)
+                raise e
+
+    return new_features
